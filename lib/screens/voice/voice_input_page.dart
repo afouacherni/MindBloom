@@ -36,48 +36,52 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
   Future<void> _initRecorder() async {
     final micStatus = await Permission.microphone.request();
     if (micStatus != PermissionStatus.granted) {
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text('Microphone Permission Denied'),
-              content: const Text(
-                'Please grant microphone permission to record audio.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('OK'),
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder:
+              (_) => AlertDialog(
+                title: const Text('Microphone Permission Denied'),
+                content: const Text(
+                  'Please grant microphone permission to record audio.',
                 ),
-              ],
-            ),
-      );
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+        );
+      }
       return;
     }
 
     try {
       await _recorder.openRecorder();
       _isRecorderInitialized = true;
-      setState(() {});
+      if (mounted) setState(() {});
     } catch (e) {
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text('Error'),
-              content: Text('Failed to initialize the recorder: $e'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-      );
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder:
+              (_) => AlertDialog(
+                title: const Text('Error'),
+                content: Text('Failed to initialize the recorder: $e'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+        );
+      }
     }
   }
 
@@ -93,22 +97,24 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
         _audioPath = filePath;
       });
     } catch (e) {
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text('Error'),
-              content: Text('Failed to start recording: $e'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-      );
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder:
+              (_) => AlertDialog(
+                title: const Text('Error'),
+                content: Text('Failed to start recording: $e'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+        );
+      }
     }
   }
 
@@ -119,22 +125,24 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
         _isRecording = false;
       });
     } catch (e) {
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text('Error'),
-              content: Text('Failed to stop recording: $e'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-      );
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder:
+              (_) => AlertDialog(
+                title: const Text('Error'),
+                content: Text('Failed to stop recording: $e'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+        );
+      }
     }
   }
 
@@ -148,27 +156,55 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Créer un style de texte pour le bouton de retour texte
+    final TextStyle backButtonStyle = TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.bold,
+      fontSize: 16,
+    );
+
     if (!_isRecorderInitialized) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Record Your Voice'),
+          backgroundColor: AppColors.primary,
+          leading: TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('<', style: backButtonStyle),
+          ),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Record Your Voice'),
         backgroundColor: AppColors.primary,
-        leading: IconButton(
-          // Ajout de la flèche de retour
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            Navigator.pop(
-              context,
-            ); // Action à effectuer lors du clic sur la flèche
-          },
+        automaticallyImplyLeading:
+            false, // Désactive complètement le bouton retour automatique
+        leading: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            alignment: Alignment.center,
+            margin: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '<',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ),
       ),
       body: GestureDetector(
         onTap: () {
-          // Close the keyboard if it's open
           FocusScope.of(context).requestFocus(FocusNode());
         },
         child: Container(

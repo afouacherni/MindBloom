@@ -73,12 +73,33 @@ class ForgetPasswordPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Style du texte pour le bouton retour
+    final TextStyle backButtonStyle = TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.bold,
+      fontSize: 16,
+    );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         title: const Text('Forgot Password'),
         elevation: 0,
+        automaticallyImplyLeading:
+            false, // Désactive le bouton retour par défaut
+        leading: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            alignment: Alignment.center,
+            margin: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Text('<', style: backButtonStyle),
+          ),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),

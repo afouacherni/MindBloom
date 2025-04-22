@@ -16,12 +16,25 @@ class HomePage extends StatelessWidget {
         backgroundColor: AppColors.primary,
         title: const Text('Home'),
         elevation: 0,
-        // Retrait de automaticallyImplyLeading
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back), // Icône flèche
-          onPressed: () {
-            Navigator.pop(context); // Retour à la page précédente
-          },
+        // Personnalisation du bouton retour
+        leading: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            alignment: Alignment.center,
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Text(
+              '<',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ),
       ),
       body: Padding(

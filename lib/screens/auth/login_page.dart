@@ -15,12 +15,40 @@ class LoginPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Style du texte pour le bouton retour
+    final TextStyle backButtonStyle = TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.bold,
+      fontSize: 16,
+    );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         title: const Text('Login'),
         elevation: 0,
+        automaticallyImplyLeading:
+            false, // Désactive le bouton retour par défaut
+        // Ajout d'un bouton retour personnalisé si ce n'est pas la première page
+        // Note: Pour la page de connexion, vous pouvez décider de ne pas ajouter de bouton retour
+        // si c'est la première page de votre application. J'ai ajouté le code ci-dessous au cas où
+        // cette page est accessible depuis une autre page.
+        leading:
+            Navigator.canPop(context)
+                ? GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    alignment: Alignment.center,
+                    margin: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text('<', style: backButtonStyle),
+                  ),
+                )
+                : null,
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),

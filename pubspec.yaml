@@ -45,6 +45,8 @@ dependencies:
   lucide_icons: ^0.257.0
   font_awesome_flutter: ^10.6.0
 
+  google_fonts: ^6.1.0 # ou la dernière version
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -63,6 +65,7 @@ dev_dependencies:
 flutter:
   assets:
     - assets/images/welcome.jpg
+    - assets/images/thou.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
