@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mindbloom/widgets/back_button.dart';
 import '../../constants/colors.dart';
 import '../../widgets/custom_text_field.dart'; // Import du widget
 import '../../widgets/custom_button.dart';
@@ -34,21 +35,7 @@ class LoginPage extends StatelessWidget {
         // Note: Pour la page de connexion, vous pouvez décider de ne pas ajouter de bouton retour
         // si c'est la première page de votre application. J'ai ajouté le code ci-dessous au cas où
         // cette page est accessible depuis une autre page.
-        leading:
-            Navigator.canPop(context)
-                ? GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Container(
-                    alignment: Alignment.center,
-                    margin: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text('<', style: backButtonStyle),
-                  ),
-                )
-                : null,
+        leading: Navigator.canPop(context) ? const BackButtonWidget() : null,
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
