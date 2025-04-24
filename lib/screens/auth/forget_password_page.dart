@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mindbloom/widgets/back_button.dart';
 import '../../constants/colors.dart';
 import '../../widgets/custom_text_field.dart'; // Import du widget
 import '../../widgets/custom_button.dart';
@@ -88,18 +89,7 @@ class ForgetPasswordPage extends StatelessWidget {
         elevation: 0,
         automaticallyImplyLeading:
             false, // Désactive le bouton retour par défaut
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            alignment: Alignment.center,
-            margin: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Text('<', style: backButtonStyle),
-          ),
-        ),
+        leading: const BackButtonWidget(),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),

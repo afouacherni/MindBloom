@@ -4,6 +4,7 @@ import '../../widgets/custom_text_field.dart'; // Import du widget
 import '../../widgets/custom_button.dart';
 import '../../utils/validators.dart';
 import '../home/home_page.dart'; // Import de la HomePage
+import '../../widgets/back_button.dart';
 
 class SignUpPage extends StatelessWidget {
   SignUpPage({super.key});
@@ -33,18 +34,10 @@ class SignUpPage extends StatelessWidget {
         elevation: 0,
         automaticallyImplyLeading:
             false, // Désactive le bouton retour par défaut
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            alignment: Alignment.center,
-            margin: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Text('<', style: backButtonStyle),
-          ),
-        ),
+        leading:
+            Navigator.canPop(context)
+                ? const BackButtonWidget() // Utilisation du widget personnalisé pour le bouton retour
+                : null,
       ),
       body: SingleChildScrollView(
         // Ajout d'un SingleChildScrollView pour permettre le défilement

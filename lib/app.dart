@@ -12,7 +12,9 @@ class MindBloomApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         scaffoldBackgroundColor: AppColors.background,
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color.fromARGB(255, 240, 167, 128),
+        ),
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),

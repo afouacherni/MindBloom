@@ -16,10 +16,7 @@ class WelcomePage extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset(
-                  'assets/images/welcome.jpg', // Remplace par ton image
-                  height: 200,
-                ),
+                Image.asset('assets/images/welcome.png', height: 200),
                 const SizedBox(height: 32),
                 const Text(
                   'Welcome to MindBloom',

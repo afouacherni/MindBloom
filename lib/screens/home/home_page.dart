@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart'; // Assure-toi d'avoir lucide_icons dans pubspec.yaml
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../constants/colors.dart';
 import '../text_input/text_input_page.dart';
 import '../voice/voice_input_page.dart';
 import '../selfie/selfie_page.dart';
+import '../../widgets/back_button.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -13,43 +14,24 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
+        backgroundColor: const Color.fromARGB(255, 239, 167, 129),
         title: const Text('Home'),
         elevation: 0,
-        // Personnalisation du bouton retour
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            alignment: Alignment.center,
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Text(
-              '<',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
+        leading: const BackButtonWidget(),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Center(
+            const Center(
               child: Text(
                 'Choose an option to proceed',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+                  color: Color.fromARGB(255, 243, 167, 126),
                 ),
               ),
             ),
@@ -75,7 +57,9 @@ class HomePage extends StatelessWidget {
               onTap:
                   () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => VoiceInputPage()),
+                    MaterialPageRoute(
+                      builder: (context) => const VoiceInputPage(),
+                    ),
                   ),
             ),
 
@@ -88,7 +72,7 @@ class HomePage extends StatelessWidget {
               onTap:
                   () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => SelfiePage()),
+                    MaterialPageRoute(builder: (context) => const SelfiePage()),
                   ),
             ),
           ],
@@ -114,13 +98,18 @@ class HomePage extends StatelessWidget {
           style: const TextStyle(color: Colors.white, fontSize: 18),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: const Color.fromARGB(255, 240, 164, 123),
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
           elevation: 6,
-          shadowColor: AppColors.primary.withOpacity(0.3),
+          shadowColor: const Color.fromARGB(
+            255,
+            237,
+            159,
+            118,
+          ).withOpacity(0.3),
         ),
         onPressed: onTap,
       ),
