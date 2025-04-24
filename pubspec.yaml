@@ -46,6 +46,7 @@ dependencies:
   font_awesome_flutter: ^10.6.0
 
   google_fonts: ^6.1.0 # ou la dernière version
+  fl_chart: ^0.71.0
 
 flutter_launcher_icons:
   android: true
@@ -75,6 +76,13 @@ flutter:
     - assets/images/welcome.png
     - assets/images/thou.jpg
     - assets/images/logo.png
+    - assets/images/back.png
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mindbloom/widgets/back_button.dart';
 import 'dart:io';
 import '../../constants/colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -40,25 +41,8 @@ class _SelfiePageState extends State<SelfiePage> {
         backgroundColor: AppColors.primary,
         automaticallyImplyLeading:
             false, // Désactive le bouton retour automatique
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            alignment: Alignment.center,
-            margin: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '<',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
+        leading:
+            const BackButtonWidget(), // Utilisation du widget personnalisé pour le bouton retour
       ),
       body: GestureDetector(
         onTap: () {

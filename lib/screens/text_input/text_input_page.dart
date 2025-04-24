@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mindbloom/widgets/back_button.dart';
 import '../../constants/colors.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
@@ -75,18 +76,7 @@ class TextInputPage extends StatelessWidget {
         title: const Text('Write Your Feelings'),
         elevation: 0,
         automaticallyImplyLeading: false,
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            alignment: Alignment.center,
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Text('<', style: backButtonStyle),
-          ),
-        ),
+        leading: const BackButtonWidget(),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

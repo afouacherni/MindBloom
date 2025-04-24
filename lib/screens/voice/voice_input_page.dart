@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
+import 'package:mindbloom/widgets/back_button.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -183,25 +184,7 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
         backgroundColor: AppColors.primary,
         automaticallyImplyLeading:
             false, // Désactive complètement le bouton retour automatique
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            alignment: Alignment.center,
-            margin: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '<',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
+        leading: const BackButtonWidget(),
       ),
       body: GestureDetector(
         onTap: () {
