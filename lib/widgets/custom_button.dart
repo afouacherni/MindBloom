@@ -9,13 +9,13 @@ class CustomButton extends StatelessWidget {
   final double? elevation;
 
   const CustomButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.onPressed,
     this.backgroundColor,
     this.textColor,
     this.elevation = 2.0,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
