@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Import de Firebase Auth
 import 'package:mindbloom/widgets/back_button.dart';
 import '../../constants/colors.dart';
 import '../../widgets/custom_text_field.dart'; // Import du widget
@@ -6,11 +7,11 @@ import '../../widgets/custom_button.dart';
 import '../../utils/validators.dart';
 
 class ForgetPasswordPage extends StatelessWidget {
-  ForgetPasswordPage({super.key}); // Retirer 'const' ici
+  ForgetPasswordPage({super.key});
 
   final TextEditingController _emailController = TextEditingController();
 
-  // Fonction simulée pour réinitialiser le mot de passe
+  // Fonction pour réinitialiser le mot de passe via Firebase Auth
   Future<void> _resetPassword(BuildContext context) async {
     final email = _emailController.text;
 
@@ -20,13 +21,16 @@ class ForgetPasswordPage extends StatelessWidget {
       return;
     }
 
-    // Simuler l'envoi d'un email de réinitialisation
-    await Future.delayed(
-      const Duration(seconds: 2),
-    ); // Simuler un délai de 2 secondes
+    try {
+      // Appel Firebase Auth pour envoyer un lien de réinitialisation de mot de passe
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
 
-    // Afficher un message de confirmation
-    _showConfirmationDialog(context);
+      // Afficher un message de confirmation
+      _showConfirmationDialog(context);
+    } catch (e) {
+      // Si une erreur se produit, afficher un message d'erreur
+      _showErrorDialog(context, 'Error: $e');
+    }
   }
 
   // Fonction pour afficher un message d'erreur
@@ -97,7 +101,6 @@ class ForgetPasswordPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CustomTextField(
-              // Utilisation du CustomTextField
               controller: _emailController,
               hintText: 'Email',
               obscureText: false,

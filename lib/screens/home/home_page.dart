@@ -1,18 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:mindbloom/widgets/emotion_graph.dart'; // Assure-toi que ce fichier existe bien
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mindbloom/widgets/emotion_graph.dart';
 import '../../constants/colors.dart';
 import '../text_input/text_input_page.dart';
 import '../voice/voice_input_page.dart';
 import '../selfie/selfie_page.dart';
 import '../../widgets/back_button.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String? userName;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserName();
+  }
+
+  Future<void> fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+      final data = doc.data();
+      setState(() {
+        userName = data?['firstName'] ?? 'User';
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String userName = 'Susan'; // À remplacer plus tard par Firebase
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final String name = userName ?? 'User';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -26,7 +65,7 @@ class HomePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // -------- Greeting --------
+            // Greeting
             Container(
               decoration: BoxDecoration(
                 color: const Color.fromARGB(244, 131, 134, 96).withOpacity(0.3),
@@ -45,7 +84,7 @@ class HomePage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Hi, $userName',
+                          'Hi, $name',
                           style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -76,7 +115,7 @@ class HomePage extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // -------- Input Buttons --------
+            // Input Buttons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
@@ -125,7 +164,7 @@ class HomePage extends StatelessWidget {
 
             const SizedBox(height: 32),
 
-            // -------- Emotion Graph Section --------
+            // Emotion Graph
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(

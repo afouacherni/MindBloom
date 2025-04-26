@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
-import 'package:mindbloom/widgets/back_button.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../constants/colors.dart';
+import 'package:mindbloom/widgets/back_button.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class VoiceInputPage extends StatefulWidget {
@@ -19,11 +22,13 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
   bool _isRecorderInitialized = false;
   bool _isRecording = false;
   String? _audioPath;
+  String? userId;
 
   @override
   void initState() {
     super.initState();
     _initRecorder();
+    _getUserId();
   }
 
   @override
@@ -32,6 +37,16 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
       _recorder.closeRecorder();
     }
     super.dispose();
+  }
+
+  // Récupérer l'ID de l'utilisateur authentifié
+  Future<void> _getUserId() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        userId = user.uid;
+      });
+    }
   }
 
   Future<void> _initRecorder() async {
@@ -125,6 +140,11 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
       setState(() {
         _isRecording = false;
       });
+
+      if (_audioPath != null && userId != null) {
+        // Uploader le fichier vocal dans Supabase
+        await _uploadVocal(userId!, _audioPath!);
+      }
     } catch (e) {
       if (mounted) {
         showDialog(
@@ -147,17 +167,83 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
     }
   }
 
-  void _toggleRecording() {
-    if (_isRecording) {
-      _stopRecording();
-    } else {
-      _startRecording();
+  Future<void> _uploadVocal(String userId, String filePath) async {
+    final file = File(filePath);
+    final fileName =
+        '$userId/vocal-${DateTime.now().millisecondsSinceEpoch}.aac';
+
+    try {
+      // Upload du fichier dans Supabase avec les options correctes
+      await Supabase.instance.client.storage
+          .from('vocals')
+          .upload(
+            fileName,
+            file,
+            fileOptions: FileOptions(cacheControl: '3600'),
+          );
+
+      // Obtenir l'URL publique du fichier téléchargé
+      final fileUrl = Supabase.instance.client.storage
+          .from('vocals')
+          .getPublicUrl(fileName);
+
+      // Ajouter l'URL du fichier à Firestore
+      await _addVocalToFirestore(userId, fileUrl);
+
+      // Afficher une confirmation
+      _showConfirmationDialog(context);
+    } catch (e) {
+      _showErrorDialog(context, 'Failed to upload vocal: $e');
     }
+  }
+
+  Future<void> _addVocalToFirestore(String userId, String vocalUrl) async {
+    try {
+      // Ajouter l'URL à Firestore (ou à toute autre base de données)
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'vocals': FieldValue.arrayUnion([vocalUrl]),
+      });
+    } catch (e) {
+      _showErrorDialog(context, 'Failed to update vocal: $e');
+    }
+  }
+
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Error'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Vocal Submitted'),
+            content: const Text('Your vocal has been successfully uploaded.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Créer un style de texte pour le bouton de retour texte
     final TextStyle backButtonStyle = TextStyle(
       color: Colors.white,
       fontWeight: FontWeight.bold,
@@ -182,8 +268,7 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
       appBar: AppBar(
         title: const Text('Record Your Voice'),
         backgroundColor: AppColors.primary,
-        automaticallyImplyLeading:
-            false, // Désactive complètement le bouton retour automatique
+        automaticallyImplyLeading: false,
         leading: const BackButtonWidget(),
       ),
       body: GestureDetector(
@@ -254,5 +339,13 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
         ),
       ),
     );
+  }
+
+  void _toggleRecording() {
+    if (_isRecording) {
+      _stopRecording();
+    } else {
+      _startRecording();
+    }
   }
 }

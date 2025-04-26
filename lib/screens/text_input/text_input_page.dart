@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mindbloom/widgets/back_button.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../constants/colors.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
@@ -9,8 +13,11 @@ class TextInputPage extends StatelessWidget {
   TextInputPage({super.key});
 
   final TextEditingController _textController = TextEditingController();
+  final CollectionReference usersCollection = FirebaseFirestore.instance
+      .collection('users');
+  final SupabaseClient supabase = Supabase.instance.client;
 
-  void _submitText(BuildContext context) {
+  Future<void> _submitText(BuildContext context) async {
     final text = _textController.text.trim();
 
     if (text.isEmpty) {
@@ -18,8 +25,63 @@ class TextInputPage extends StatelessWidget {
       return;
     }
 
-    // TODO: Envoyer le texte à l'API ou à Firebase
-    _showConfirmationDialog(context);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showErrorDialog(context, 'User not authenticated');
+      return;
+    }
+    String userId = user.uid;
+
+    try {
+      await usersCollection.doc(userId).collection('thoughts').add({
+        'content': text,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      _showConfirmationDialog(context);
+    } catch (e) {
+      _showErrorDialog(context, 'Failed to submit: $e');
+    }
+  }
+
+  Future<void> _uploadSelfie(
+    BuildContext context,
+    String userId,
+    String filePath,
+  ) async {
+    try {
+      final file = File(filePath);
+      final fileName =
+          '$userId/selfie-${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      await supabase.storage
+          .from('selfies')
+          .upload(
+            fileName,
+            file,
+            fileOptions: FileOptions(cacheControl: '3600'),
+          );
+
+      final selfieUrl = supabase.storage.from('selfies').getPublicUrl(fileName);
+
+      await _addSelfieToFirestore(context, userId, selfieUrl);
+    } catch (e) {
+      _showErrorDialog(context, 'Failed to upload selfie: $e');
+    }
+  }
+
+  Future<void> _addSelfieToFirestore(
+    BuildContext context,
+    String userId,
+    String selfieUrl,
+  ) async {
+    try {
+      await usersCollection.doc(userId).update({
+        'selfies': FieldValue.arrayUnion([selfieUrl]),
+      });
+    } catch (e) {
+      _showErrorDialog(context, 'Failed to update selfie: $e');
+    }
   }
 
   void _showErrorDialog(BuildContext context, String message) {
@@ -51,8 +113,8 @@ class TextInputPage extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context); // Fermer le dialog
-                  Navigator.pop(context); // Revenir en arrière
+                  Navigator.pop(context);
+                  Navigator.pop(context);
                 },
                 child: const Text('Back'),
               ),
@@ -63,12 +125,6 @@ class TextInputPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextStyle backButtonStyle = TextStyle(
-      color: Colors.white,
-      fontWeight: FontWeight.bold,
-      fontSize: 16,
-    );
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -82,10 +138,7 @@ class TextInputPage extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Image.asset(
-              'assets/images/thou.jpg', // mets une belle image illustrant l'écriture
-              height: 180,
-            ),
+            Image.asset('assets/images/thou.jpg', height: 180),
             const SizedBox(height: 24),
             Text(
               "How are you feeling today?",
