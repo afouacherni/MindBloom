@@ -1,15 +1,17 @@
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mindbloom/widgets/back_button.dart';
 import 'dart:io';
-import '../../constants/colors.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../constants/colors.dart';
+import '../../widgets/back_button.dart';
 
 class SelfiePage extends StatefulWidget {
-  const SelfiePage({super.key});
+  // Vous pouvez marquer le constructeur comme const
+  const SelfiePage({Key? key}) : super(key: key);
 
   @override
   _SelfiePageState createState() => _SelfiePageState();
@@ -19,7 +21,6 @@ class _SelfiePageState extends State<SelfiePage> {
   File? _image;
   String? userId;
   bool _isUploading = false;
-  TextEditingController _thoughtController = TextEditingController();
 
   @override
   void initState() {
@@ -37,6 +38,7 @@ class _SelfiePageState extends State<SelfiePage> {
     }
   }
 
+  // Fonction pour choisir une image depuis la caméra
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? photo = await picker.pickImage(source: ImageSource.camera);
@@ -48,6 +50,7 @@ class _SelfiePageState extends State<SelfiePage> {
     }
   }
 
+  // Fonction pour télécharger la selfie
   Future<void> _uploadSelfie() async {
     if (_image == null || userId == null) {
       _showErrorDialog('No image selected or user not authenticated');
@@ -100,17 +103,7 @@ class _SelfiePageState extends State<SelfiePage> {
     }
   }
 
-  // Ajouter les pensées à Firestore
-  Future<void> _addThoughtToFirestore(String userId, String thought) async {
-    try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).update({
-        'thoughts': FieldValue.arrayUnion([thought]),
-      });
-    } catch (e) {
-      _showErrorDialog('Failed to update thought: $e');
-    }
-  }
-
+  // Fonction pour afficher un message d'erreur
   void _showErrorDialog(String message) {
     if (!mounted) return;
 
@@ -130,6 +123,7 @@ class _SelfiePageState extends State<SelfiePage> {
     );
   }
 
+  // Fonction pour afficher un message de confirmation
   void _showConfirmationDialog() {
     if (!mounted) return;
 
@@ -195,8 +189,8 @@ class _SelfiePageState extends State<SelfiePage> {
                         ],
                       ),
                       child: IconButton(
-                        icon: FaIcon(
-                          FontAwesomeIcons.camera,
+                        icon: const Icon(
+                          Icons.camera_alt,
                           size: 60,
                           color: Colors.white,
                         ),
@@ -239,58 +233,6 @@ class _SelfiePageState extends State<SelfiePage> {
                             ),
                       ],
                     ),
-                const SizedBox(height: 20),
-                Text(
-                  _image == null ? 'Tap to take a selfie' : 'Selfie captured!',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Champ de texte pour saisir les pensées
-                TextField(
-                  controller: _thoughtController,
-                  decoration: const InputDecoration(
-                    labelText: 'Enter your thoughts',
-                    labelStyle: TextStyle(color: Colors.white),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white),
-                    ),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  onPressed: () async {
-                    if (_thoughtController.text.isNotEmpty && userId != null) {
-                      await _addThoughtToFirestore(
-                        userId!,
-                        _thoughtController.text,
-                      );
-                      _thoughtController
-                          .clear(); // Vide le champ après soumission
-                      _showConfirmationDialog();
-                    } else {
-                      _showErrorDialog('Please enter a thought.');
-                    }
-                  },
-                  child: const Text(
-                    'Submit Thought',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
               ],
             ),
           ),
