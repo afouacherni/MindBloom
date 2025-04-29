@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mindbloom/widgets/emotion_graph.dart';
+import 'package:mindbloom/widgets/emotional_score_gauge.dart'; // 👈 AJOUT ICI
 import '../../constants/colors.dart';
 import '../text_input/text_input_page.dart';
 import '../voice/voice_input_page.dart';
@@ -53,6 +54,8 @@ class _HomePageState extends State<HomePage> {
     }
 
     final String name = userName ?? 'User';
+    double emotionalScore =
+        0.76; // 👈 Valeur exemple (à remplacer dynamiquement)
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -79,7 +82,6 @@ class _HomePageState extends State<HomePage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Texte
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,7 +103,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  // Image
                   SizedBox(
                     height: 100,
                     width: 100,
@@ -115,6 +116,11 @@ class _HomePageState extends State<HomePage> {
             ),
 
             const SizedBox(height: 24),
+
+            // 👇 AJOUT DU SCORE GAUGE
+            Center(child: EmotionalScoreGauge(score: emotionalScore)),
+
+            const SizedBox(height: 32),
 
             // Input Buttons
             Padding(
@@ -160,7 +166,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                   ),
                   const SizedBox(height: 20),
-                  // Nouveau bouton pour accéder au chatbot
                   _buildAnimatedButton(
                     context,
                     icon: LucideIcons.messageCircle,
