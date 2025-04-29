@@ -39,7 +39,6 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
     super.dispose();
   }
 
-  // Récupérer l'ID de l'utilisateur authentifié
   Future<void> _getUserId() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -142,7 +141,6 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
       });
 
       if (_audioPath != null && userId != null) {
-        // Uploader le fichier vocal dans Supabase
         await _uploadVocal(userId!, _audioPath!);
       }
     } catch (e) {
@@ -173,7 +171,6 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
         '$userId/vocal-${DateTime.now().millisecondsSinceEpoch}.aac';
 
     try {
-      // Upload du fichier dans Supabase avec les options correctes
       await Supabase.instance.client.storage
           .from('vocals')
           .upload(
@@ -182,15 +179,11 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
             fileOptions: FileOptions(cacheControl: '3600'),
           );
 
-      // Obtenir l'URL publique du fichier téléchargé
       final fileUrl = Supabase.instance.client.storage
           .from('vocals')
           .getPublicUrl(fileName);
 
-      // Ajouter l'URL du fichier à Firestore
       await _addVocalToFirestore(userId, fileUrl);
-
-      // Afficher une confirmation
       _showConfirmationDialog(context);
     } catch (e) {
       _showErrorDialog(context, 'Failed to upload vocal: $e');
@@ -199,7 +192,6 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
 
   Future<void> _addVocalToFirestore(String userId, String vocalUrl) async {
     try {
-      // Ajouter l'URL à Firestore (ou à toute autre base de données)
       await FirebaseFirestore.instance.collection('users').doc(userId).update({
         'vocals': FieldValue.arrayUnion([vocalUrl]),
       });
@@ -244,21 +236,13 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
 
   @override
   Widget build(BuildContext context) {
-    final TextStyle backButtonStyle = TextStyle(
-      color: Colors.white,
-      fontWeight: FontWeight.bold,
-      fontSize: 16,
-    );
-
     if (!_isRecorderInitialized) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Record Your Voice'),
           backgroundColor: AppColors.primary,
-          leading: TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('<', style: backButtonStyle),
-          ),
+          automaticallyImplyLeading: false,
+          leading: const BackButtonWidget(), // Correction ici
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -272,9 +256,7 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
         leading: const BackButtonWidget(),
       ),
       body: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).requestFocus(FocusNode());
-        },
+        onTap: () => FocusScope.of(context).unfocus(),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -286,7 +268,6 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
