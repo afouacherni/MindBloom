@@ -7,6 +7,7 @@ import '../../constants/colors.dart';
 import '../text_input/text_input_page.dart';
 import '../voice/voice_input_page.dart';
 import '../selfie/selfie_page.dart';
+import '../chatbot/chatbot_screen.dart';
 import '../../widgets/back_button.dart';
 
 class HomePage extends StatefulWidget {
@@ -155,6 +156,20 @@ class _HomePageState extends State<HomePage> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => const SelfiePage(),
+                          ),
+                        ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Nouveau bouton pour accéder au chatbot
+                  _buildAnimatedButton(
+                    context,
+                    icon: LucideIcons.messageCircle,
+                    label: 'Interagir avec Chatbot',
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ChatbotScreen(),
                           ),
                         ),
                   ),

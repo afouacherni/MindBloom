@@ -82,6 +82,8 @@ flutter:
     - assets/images/thou.jpg
     - assets/images/logo.png
     - assets/images/back.png
+    - assets/images/bot.png
+    - assets/images/chat_bg.jpg
   fonts:
     - family: Roboto
       fonts:
