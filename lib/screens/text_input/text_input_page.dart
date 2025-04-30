@@ -30,6 +30,7 @@ class TextInputPage extends StatelessWidget {
       _showErrorDialog(context, 'User not authenticated');
       return;
     }
+
     String userId = user.uid;
 
     try {
@@ -38,7 +39,7 @@ class TextInputPage extends StatelessWidget {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      _showConfirmationDialog(context);
+      _showNextStepDialog(context); // ← Affiche les options après soumission
     } catch (e) {
       _showErrorDialog(context, 'Failed to submit: $e');
     }
@@ -101,22 +102,36 @@ class TextInputPage extends StatelessWidget {
     );
   }
 
-  void _showConfirmationDialog(BuildContext context) {
+  void _showNextStepDialog(BuildContext context) {
     showDialog(
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text('Submitted'),
+            title: const Text('What would you like to do next?'),
             content: const Text(
-              'Your thoughts have been successfully submitted.',
+              'Your thoughts have been submitted successfully.',
             ),
             actions: [
               TextButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/home'); // ← Correction ici
                 },
-                child: const Text('Back'),
+                child: const Text('View Score'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/selfie');
+                },
+                child: const Text('Take a Selfie'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/voice_input');
+                },
+                child: const Text('Record Voice'),
               ),
             ],
           ),
