@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'constants/colors.dart';
 import 'screens/welcome/welcome_page.dart';
+import 'routes/app_routes.dart';
 
 class MindBloomApp extends StatelessWidget {
   const MindBloomApp({super.key});
@@ -17,6 +18,7 @@ class MindBloomApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const WelcomePage(),
+      routes: AppRoutes.routes,
     );
   }
 }
