@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/colors.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
@@ -19,6 +18,9 @@ class SignUpPage extends StatelessWidget {
       TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  // Client Supabase
+  final supabase = Supabase.instance.client;
 
   @override
   Widget build(BuildContext context) {
@@ -99,39 +101,38 @@ class SignUpPage extends StatelessWidget {
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       try {
-                        // Créer un utilisateur avec Firebase Auth
-                        UserCredential userCredential = await FirebaseAuth
-                            .instance
-                            .createUserWithEmailAndPassword(
-                              email: _emailController.text.trim(),
-                              password: _passwordController.text.trim(),
-                            );
-
-                        // Ajouter l'utilisateur dans Firestore
-                        await FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(userCredential.user!.uid)
-                            .set({
-                              'firstName': _firstNameController.text.trim(),
-                              'lastName': _lastNameController.text.trim(),
-                              'email': _emailController.text.trim(),
-                              'age': int.parse(_ageController.text.trim()),
-                              'createdAt': Timestamp.now(),
-                            });
-
-                        // Aller à la HomePage
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => HomePage()),
+                        final AuthResponse res = await supabase.auth.signUp(
+                          email: _emailController.text.trim(),
+                          password: _passwordController.text.trim(),
                         );
-                      } on FirebaseAuthException catch (e) {
+
+                        if (res.user != null) {
+                          // Insertion dans la table "profiles"
+                          await supabase.from('profiles').insert({
+                            'id': res.user!.id,
+                            'first_name': _firstNameController.text.trim(),
+                            'last_name': _lastNameController.text.trim(),
+                            'age': int.parse(_ageController.text.trim()),
+                          });
+
+                          // Navigation vers la page d'accueil
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => HomePage()),
+                          );
+                        }
+                      } on AuthException catch (e) {
                         String message = 'Registration failed';
-                        if (e.code == 'email-already-in-use') {
+                        if (e.message.contains('already registered')) {
                           message = 'Email already in use.';
                         }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('$message: ${e.message}')),
+                        );
+                      } catch (e) {
                         ScaffoldMessenger.of(
                           context,
-                        ).showSnackBar(SnackBar(content: Text(message)));
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
                       }
                     }
                   },

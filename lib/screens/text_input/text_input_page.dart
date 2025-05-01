@@ -1,94 +1,69 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:mindbloom/widgets/back_button.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mindbloom/widgets/back_button.dart';
 import '../../constants/colors.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
 
-class TextInputPage extends StatelessWidget {
-  TextInputPage({super.key});
+class TextInputPage extends StatefulWidget {
+  const TextInputPage({super.key});
 
+  @override
+  State<TextInputPage> createState() => _TextInputPageState();
+}
+
+class _TextInputPageState extends State<TextInputPage> {
   final TextEditingController _textController = TextEditingController();
-  final CollectionReference usersCollection = FirebaseFirestore.instance
-      .collection('users');
-  final SupabaseClient supabase = Supabase.instance.client;
+  final SupabaseClient _supabase = Supabase.instance.client;
+  bool _isLoading = false;
 
-  Future<void> _submitText(BuildContext context) async {
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitText() async {
+    if (_isLoading) return;
+
     final text = _textController.text.trim();
-
     if (text.isEmpty) {
-      _showErrorDialog(context, 'Please write something before submitting.');
+      _showErrorDialog('Please write something before submitting.');
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _supabase.auth.currentUser;
     if (user == null) {
-      _showErrorDialog(context, 'User not authenticated');
+      _showErrorDialog('User not authenticated');
       return;
     }
-    String userId = user.uid;
+
+    setState(() => _isLoading = true);
 
     try {
-      await usersCollection.doc(userId).collection('thoughts').add({
+      await _supabase.from('thoughts').insert({
+        'user_id': user.id,
         'content': text,
-        'timestamp': FieldValue.serverTimestamp(),
+        'created_at': DateTime.now().toIso8601String(),
       });
 
-      _showConfirmationDialog(context);
+      if (!mounted) return;
+      _showConfirmationDialog();
+      _textController.clear();
     } catch (e) {
-      _showErrorDialog(context, 'Failed to submit: $e');
+      if (!mounted) return;
+      _showErrorDialog('Failed to submit: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _uploadSelfie(
-    BuildContext context,
-    String userId,
-    String filePath,
-  ) async {
-    try {
-      final file = File(filePath);
-      final fileName =
-          '$userId/selfie-${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      await supabase.storage
-          .from('selfies')
-          .upload(
-            fileName,
-            file,
-            fileOptions: FileOptions(cacheControl: '3600'),
-          );
-
-      final selfieUrl = supabase.storage.from('selfies').getPublicUrl(fileName);
-
-      await _addSelfieToFirestore(context, userId, selfieUrl);
-    } catch (e) {
-      _showErrorDialog(context, 'Failed to upload selfie: $e');
-    }
-  }
-
-  Future<void> _addSelfieToFirestore(
-    BuildContext context,
-    String userId,
-    String selfieUrl,
-  ) async {
-    try {
-      await usersCollection.doc(userId).update({
-        'selfies': FieldValue.arrayUnion([selfieUrl]),
-      });
-    } catch (e) {
-      _showErrorDialog(context, 'Failed to update selfie: $e');
-    }
-  }
-
-  void _showErrorDialog(BuildContext context, String message) {
+  void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (context) => AlertDialog(
             title: const Text('Error'),
             content: Text(message),
             actions: [
@@ -101,22 +76,19 @@ class TextInputPage extends StatelessWidget {
     );
   }
 
-  void _showConfirmationDialog(BuildContext context) {
+  void _showConfirmationDialog() {
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (context) => AlertDialog(
             title: const Text('Submitted'),
             content: const Text(
               'Your thoughts have been successfully submitted.',
             ),
             actions: [
               TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                child: const Text('Back'),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
               ),
             ],
           ),
@@ -125,53 +97,71 @@ class TextInputPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        title: const Text('Write Your Feelings'),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: const BackButtonWidget(),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Image.asset('assets/images/thou.jpg', height: 180),
-            const SizedBox(height: 24),
-            Text(
-              "How are you feeling today?",
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.text,
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          title: const Text('Write Your Feelings'),
+          elevation: 0,
+          leading: const BackButtonWidget(),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Image.asset('assets/images/thou.jpg', height: 180),
+              const SizedBox(height: 24),
+              Text(
+                "How are you feeling today?",
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.text,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              elevation: 4,
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: CustomTextField(
-                  controller: _textController,
-                  hintText: 'Write your thoughts...',
-                  obscureText: false,
-                  maxLines: 8,
+              const SizedBox(height: 16),
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                elevation: 4,
+                color: Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: CustomTextField(
+                    controller: _textController,
+                    hintText: 'Write your thoughts...',
+                    obscureText: false,
+                    maxLines: 8,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-            CustomButton(
-              label: 'Submit',
-              onPressed: () => _submitText(context),
-            ),
-          ],
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submitText,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child:
+                      _isLoading
+                          ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: Colors.white,
+                            ),
+                          )
+                          : const Text('Submit'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
