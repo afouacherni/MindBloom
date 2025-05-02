@@ -40,16 +40,19 @@ dependencies:
   permission_handler: ^12.0.0 # ou la dernière version stable disponible
   # Assure-toi que cette version est bien la plus récente et compatible avec v2
 
+
   path_provider: ^2.1.5
 
   lucide_icons: ^0.257.0
-  font_awesome_flutter: ^10.6.0
 
-  google_fonts: ^6.1.0 # ou la dernière version
+  font_awesome_flutter: ^10.6.0
+  percent_indicator: ^4.2.5
+  google_fonts: ^6.1.0
   fl_chart: ^0.71.0
 
   supabase_flutter: ^2.9.0
   file_picker: ^10.1.2
+  lucide_icons: ^0.257.0
 
 flutter_launcher_icons:
   android: true
@@ -80,6 +83,8 @@ flutter:
     - assets/images/thou.jpg
     - assets/images/logo.png
     - assets/images/back.png
+    - assets/images/bot.png
+    - assets/images/chat_bg.jpg
   fonts:
     - family: Roboto
       fonts:

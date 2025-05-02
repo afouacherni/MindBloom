@@ -39,7 +39,9 @@ class _TextInputPageState extends State<TextInputPage> {
       return;
     }
 
+
     setState(() => _isLoading = true);
+
 
     try {
       await _supabase.from('thoughts').insert({
@@ -48,9 +50,11 @@ class _TextInputPageState extends State<TextInputPage> {
         'created_at': DateTime.now().toIso8601String(),
       });
 
+
       if (!mounted) return;
       _showConfirmationDialog();
       _textController.clear();
+
     } catch (e) {
       if (!mounted) return;
       _showErrorDialog('Failed to submit: ${e.toString()}');
@@ -82,13 +86,33 @@ class _TextInputPageState extends State<TextInputPage> {
       builder:
           (context) => AlertDialog(
             title: const Text('Submitted'),
+
             content: const Text(
-              'Your thoughts have been successfully submitted.',
+              'Your thoughts have been submitted successfully.',
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/home'); // ← Correction ici
+                },
+                child: const Text('View Score'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/selfie');
+                },
+                child: const Text('Take a Selfie'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/voice_input');
+                },
+                child: const Text('Record Voice'),
+
               ),
             ],
           ),
