@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mindbloom/widgets/back_button.dart';
 import '../../constants/colors.dart';
 import '../../widgets/custom_text_field.dart';
@@ -9,12 +9,59 @@ import '../home/home_page.dart';
 import 'signup_page.dart';
 import 'forget_password_page.dart';
 
-class LoginPage extends StatelessWidget {
-  LoginPage({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final AuthResponse response = await Supabase.instance.client.auth
+          .signInWithPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+
+      if (response.user == null) throw Exception('Login failed');
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } on AuthException catch (e) {
+      String errorMessage = 'Login failed. Please try again.';
+      if (e.message.contains('Invalid login credentials')) {
+        errorMessage = 'Email or password is incorrect';
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,60 +95,35 @@ class LoginPage extends StatelessWidget {
                 validator: Validators.validatePassword,
               ),
               const SizedBox(height: 32),
-              CustomButton(
-                label: 'Login',
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    final email = _emailController.text.trim();
-                    final password = _passwordController.text.trim();
-
-                    try {
-                      await FirebaseAuth.instance.signInWithEmailAndPassword(
-                        email: email,
-                        password: password,
-                      );
-
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => HomePage()),
-                      );
-                    } on FirebaseAuthException catch (e) {
-                      String errorMessage;
-                      if (e.code == 'user-not-found') {
-                        errorMessage = 'No user found for that email.';
-                      } else if (e.code == 'wrong-password') {
-                        errorMessage = 'Wrong password provided.';
-                      } else {
-                        errorMessage = 'Login failed. Please try again.';
-                      }
-
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(errorMessage)));
-                    }
-                  }
-                },
+              ElevatedButton(
+                onPressed: _isLoading ? null : () => _login(),
+                child:
+                    _isLoading
+                        ? const CircularProgressIndicator()
+                        : const Text('Login'),
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ForgetPasswordPage(),
-                    ),
-                  );
-                },
+                onPressed:
+                    _isLoading
+                        ? null
+                        : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ForgetPasswordPage(),
+                          ),
+                        ),
                 child: const Text('Forgot Password?'),
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => SignUpPage()),
-                  );
-                },
+                onPressed:
+                    _isLoading
+                        ? null
+                        : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => SignUpPage()),
+                        ),
                 child: const Text('Don\'t have an account? Sign Up'),
               ),
             ],

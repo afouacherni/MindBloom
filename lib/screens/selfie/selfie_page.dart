@@ -1,116 +1,73 @@
 import 'dart:io';
-
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../../constants/colors.dart';
-import '../../widgets/back_button.dart';
+import 'package:mindbloom/widgets/back_button.dart';
 
-class SelfiePage extends StatefulWidget {
-  // Vous pouvez marquer le constructeur comme const
-  const SelfiePage({Key? key}) : super(key: key);
+class SelfieUploadPage extends StatefulWidget {
+  const SelfieUploadPage({super.key});
 
   @override
-  _SelfiePageState createState() => _SelfiePageState();
+  State<SelfieUploadPage> createState() => _SelfieUploadPageState();
 }
 
-class _SelfiePageState extends State<SelfiePage> {
+class _SelfieUploadPageState extends State<SelfieUploadPage> {
   File? _image;
-  String? userId;
-  bool _isUploading = false;
+  bool _loading = false;
+  final ImagePicker _picker = ImagePicker();
+  final SupabaseClient _supabase = Supabase.instance.client;
 
-  @override
-  void initState() {
-    super.initState();
-    _getUserId();
-  }
-
-  // Récupérer l'ID de l'utilisateur authentifié
-  Future<void> _getUserId() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      setState(() {
-        userId = user.uid;
-      });
-    }
-  }
-
-  // Fonction pour choisir une image depuis la caméra
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? photo = await picker.pickImage(source: ImageSource.camera);
-
-    if (photo != null) {
-      setState(() {
-        _image = File(photo.path);
-      });
+    final pickedFile = await _picker.pickImage(source: ImageSource.camera);
+    if (pickedFile != null) {
+      setState(() => _image = File(pickedFile.path));
     }
   }
 
-  // Fonction pour télécharger la selfie
   Future<void> _uploadSelfie() async {
-    if (_image == null || userId == null) {
-      _showErrorDialog('No image selected or user not authenticated');
+    if (_image == null) return;
+
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      _showErrorDialog('User not authenticated');
       return;
     }
 
-    setState(() {
-      _isUploading = true;
-    });
+    setState(() => _loading = true);
 
     try {
+      // 1. Upload vers Supabase Storage
       final fileName =
-          '$userId/selfie-${DateTime.now().millisecondsSinceEpoch}.jpg';
+          'selfies/${user.id}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await _supabase.storage.from('user-selfies').upload(fileName, _image!);
 
-      // Upload le fichier à Supabase
-      await Supabase.instance.client.storage
-          .from('selfies')
-          .upload(
-            fileName,
-            _image!,
-            fileOptions: FileOptions(cacheControl: '3600'),
-          );
-
-      // Obtenir l'URL publique
-      final selfieUrl = Supabase.instance.client.storage
-          .from('selfies')
+      // 2. Récupérer l'URL publique
+      final publicUrl = _supabase.storage
+          .from('user-selfies')
           .getPublicUrl(fileName);
 
-      // Ajouter à Firestore
-      await _addSelfieToFirestore(userId!, selfieUrl);
+      // 3. Enregistrer dans la table selfie_records
+      await _supabase.from('selfie_records').insert({
+        'user_id': user.id,
+        'file_path': fileName,
+        'url': publicUrl,
+        'created_at': DateTime.now().toIso8601String(),
+      });
 
-      _showConfirmationDialog();
+      _showSuccessDialog();
     } catch (e) {
-      _showErrorDialog('Failed to upload selfie: $e');
+      _showErrorDialog('Upload failed: ${e.toString()}');
     } finally {
-      setState(() {
-        _isUploading = false;
-      });
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // Ajouter la selfie à Firestore
-  Future<void> _addSelfieToFirestore(String userId, String selfieUrl) async {
-    try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).update({
-        'selfies': FieldValue.arrayUnion([selfieUrl]),
-      });
-    } catch (e) {
-      _showErrorDialog('Failed to update selfie: $e');
-    }
-  }
-
-  // Fonction pour afficher un message d'erreur
   void _showErrorDialog(String message) {
-    if (!mounted) return;
-
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (context) => AlertDialog(
             title: const Text('Error'),
             content: Text(message),
             actions: [
@@ -123,23 +80,17 @@ class _SelfiePageState extends State<SelfiePage> {
     );
   }
 
-  // Fonction pour afficher un message de confirmation
-  void _showConfirmationDialog() {
-    if (!mounted) return;
-
+  void _showSuccessDialog() {
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
-            title: const Text('Selfie Submitted'),
-            content: const Text('Your selfie has been successfully uploaded.'),
+          (context) => AlertDialog(
+            title: const Text('Success'),
+            content: const Text('Your selfie has been uploaded successfully!'),
             actions: [
               TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Fermer le dialog
-                  Navigator.pop(context); // Revenir en arrière
-                },
-                child: const Text('Back'),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
               ),
             ],
           ),
@@ -150,92 +101,32 @@ class _SelfiePageState extends State<SelfiePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Take a Selfie'),
+        title: const Text('Upload Selfie'),
         backgroundColor: AppColors.primary,
-        automaticallyImplyLeading: false,
         leading: const BackButtonWidget(),
       ),
-      body: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).requestFocus(FocusNode());
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _image != null
+                ? Image.file(_image!, height: 200)
+                : const Icon(Icons.camera_alt, size: 100, color: Colors.grey),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _pickImage,
+              child: const Text('Take Selfie'),
             ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _image == null
-                    ? AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: 150,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blueAccent,
-                            blurRadius: 10,
-                            spreadRadius: 3,
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.camera_alt,
-                          size: 60,
-                          color: Colors.white,
-                        ),
-                        onPressed: _pickImage,
-                      ),
-                    )
-                    : Column(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.file(
-                            _image!,
-                            width: 250,
-                            height: 250,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _isUploading
-                            ? const CircularProgressIndicator()
-                            : ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.accent,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 40,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                              onPressed: _uploadSelfie,
-                              child: const Text(
-                                'Upload Selfie',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                      ],
-                    ),
-              ],
-            ),
-          ),
+            const SizedBox(height: 20),
+            if (_image != null)
+              ElevatedButton(
+                onPressed: _loading ? null : _uploadSelfie,
+                child:
+                    _loading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Upload to Supabase'),
+              ),
+          ],
         ),
       ),
     );

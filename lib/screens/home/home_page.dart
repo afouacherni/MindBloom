@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:mindbloom/widgets/emotion_graph.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../widgets/emotion_graph.dart';
+
 import 'package:mindbloom/widgets/emotional_score_gauge.dart'; // 👈 AJOUT ICI
+
 import '../../constants/colors.dart';
 import '../text_input/text_input_page.dart';
 import '../voice/voice_input_page.dart';
@@ -19,29 +21,114 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String? userName;
+  // Données de profil
+  String? firstName;
+  String? lastName;
+  int? age;
+  String? createdAt;
+
+  // État de chargement
   bool isLoading = true;
+  bool hasError = false;
+  String errorMessage = '';
+
+  double emotionalScore = 0.76; // 👈 Valeur exemple (à remplacer dynamiquement)
+
+  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-    fetchUserName();
+    // Initialisez les données dès le démarrage
+    fetchUserProfile();
   }
 
-  Future<void> fetchUserName() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-      final data = doc.data();
+  Future<void> fetchUserProfile() async {
+    if (!mounted) return;
+
+    setState(() {
+      isLoading = true;
+      hasError = false;
+    });
+
+    try {
+      debugPrint("Récupération du profil utilisateur");
+      final user = supabase.auth.currentUser;
+
+      if (user == null) {
+        // Définir un état par défaut si aucun utilisateur n'est connecté
+        if (!mounted) return;
+        setState(() {
+          firstName = 'Invité';
+          lastName = '';
+          age = null;
+          createdAt = null;
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Récupération des données du profil
+      final response =
+          await supabase
+              .from('profiles')
+              .select('first_name, last_name, age, created_at')
+              .eq('id', user.id)
+              .maybeSingle(); // Utilisation de maybeSingle au lieu de single pour éviter les exceptions
+
+      if (!mounted) return;
+
+      if (response == null) {
+        // Profil non trouvé
+        setState(() {
+          firstName = 'new user';
+          lastName = '';
+          age = null;
+          createdAt = null;
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Définir les valeurs du profil
       setState(() {
-        userName = data?['firstName'] ?? 'User';
+        firstName = response['first_name'];
+        lastName = response['last_name'];
+        age = response['age'];
+
+        // Formatage simple de la date sans le package intl
+        if (response['created_at'] != null) {
+          try {
+            final dateTime = DateTime.parse(response['created_at']);
+            createdAt = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+          } catch (e) {
+            createdAt = 'Date invalide';
+          }
+        } else {
+          createdAt = 'Non définie';
+        }
+
         isLoading = false;
       });
+    } catch (e) {
+      debugPrint("Erreur lors de la récupération du profil: $e");
+      if (!mounted) return;
+
+      setState(() {
+        firstName = 'Utilisateur';
+        lastName = '';
+        age = null;
+        createdAt = null;
+        isLoading = false;
+        hasError = true;
+        errorMessage = 'Impossible de charger le profil. Veuillez réessayer.';
+      });
     }
+  }
+
+  String formatDateSimple(String? dateStr) {
+    if (dateStr == null) return 'Date inconnue';
+    return dateStr;
   }
 
   @override
@@ -53,55 +140,92 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    final String name = userName ?? 'User';
-    double emotionalScore =
-        0.76; // 👈 Valeur exemple (à remplacer dynamiquement)
+    final String name = '${firstName ?? 'User'} ${lastName ?? ''}';
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
-        title: const Text('Home'),
+        title: const Text('My Profile'),
         elevation: 0,
         leading: const BackButtonWidget(),
       ),
-      body: SingleChildScrollView(
+      // Corps de la page
+      body:
+          isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _buildPageContent(),
+    );
+  }
+
+  // Méthode séparée pour le contenu principal
+  Widget _buildPageContent() {
+    // Afficher un message d'erreur si nécessaire
+    if (hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              errorMessage,
+              style: const TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: fetchUserProfile,
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Contenu normal si les données sont chargées sans erreur
+    return SafeArea(
+      child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Greeting
+            // Section d'accueil
             Container(
+              width: double.infinity, // Force la largeur complète
               decoration: BoxDecoration(
-                color: const Color.fromARGB(244, 131, 134, 96).withOpacity(0.3),
+                color: AppColors.primary.withOpacity(0.1),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+              padding: const EdgeInsets.all(20),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Hi, $name',
+                          'HI! ${firstName ?? 'Utilisateur'}',
                           style: const TextStyle(
-                            fontSize: 28,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'You are not alone. Every emotion you feel matters.',
-                          style: TextStyle(fontSize: 18, color: Colors.black),
+                        Text(
+                          "Feel free to express yourself here. This is your safe space.",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey[700],
+                          ),
                         ),
                       ],
                     ),
                   ),
+
                   const SizedBox(width: 16),
                   SizedBox(
                     height: 100,
@@ -115,35 +239,35 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // 👇 AJOUT DU SCORE GAUGE
             Center(child: EmotionalScoreGauge(score: emotionalScore)),
 
             const SizedBox(height: 32),
 
-            // Input Buttons
+            // Actions disponibles
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAnimatedButton(
+                  const Text(
+                    'Actions',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  _actionButton(
                     context,
                     icon: LucideIcons.edit,
-                    label: 'Enter Text',
-                    onTap:
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TextInputPage(),
-                          ),
-                        ),
+                    label: 'Edit My Profile',
+                    onTap: () => _showEditProfileDialog(context),
                   ),
-                  const SizedBox(height: 20),
-                  _buildAnimatedButton(
+                  const SizedBox(height: 12),
+                  _actionButton(
                     context,
                     icon: LucideIcons.mic,
-                    label: 'Record Audio',
+                    label: 'Record an Audio',
                     onTap:
                         () => Navigator.push(
                           context,
@@ -152,8 +276,21 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                   ),
-                  const SizedBox(height: 20),
-                  _buildAnimatedButton(
+                  const SizedBox(height: 12),
+                  _actionButton(
+                    context,
+                    icon: LucideIcons.activity,
+                    label: 'Let Your Thoughts Flow',
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TextInputPage(),
+                          ),
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  _actionButton(
                     context,
                     icon: LucideIcons.camera,
                     label: 'Take a Selfie',
@@ -161,15 +298,15 @@ class _HomePageState extends State<HomePage> {
                         () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const SelfiePage(),
+                            builder: (context) => const SelfieUploadPage(),
                           ),
                         ),
                   ),
-                  const SizedBox(height: 20),
-                  _buildAnimatedButton(
+                  const SizedBox(height: 12),
+                  _actionButton(
                     context,
                     icon: LucideIcons.messageCircle,
-                    label: 'Interagir avec Chatbot',
+                    label: 'Engage with the Chatbot',
                     onTap:
                         () => Navigator.push(
                           context,
@@ -178,61 +315,199 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                   ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
 
-            const SizedBox(height: 32),
-
-            // Emotion Graph
+            // Graphique émotionnel (si disponible)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'View Emotion Graph',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    "Your Emotional State",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  AspectRatio(aspectRatio: 1.5, child: EmotionGraphWidget()),
+                  Container(
+                    height: 200,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: _buildEmotionGraphWithErrorHandling(),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
+
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAnimatedButton(
+  // Ligne d'information de profil
+  Widget _infoRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 24, color: AppColors.primary),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+                Text(value, style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Bouton d'action
+  Widget _actionButton(
     BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        icon: Icon(icon, color: Colors.white, size: 24),
-        label: Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 18),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+    return Card(
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.primary),
+              const SizedBox(width: 16),
+              Expanded(child: Text(label)),
+              const Icon(Icons.chevron_right),
+            ],
           ),
-          elevation: 6,
-          shadowColor: AppColors.accent.withOpacity(0.3),
         ),
-        onPressed: onTap,
       ),
+    );
+  }
+
+  // Dialogue de modification du profil
+  void _showEditProfileDialog(BuildContext context) {
+    final firstNameController = TextEditingController(text: firstName);
+    final lastNameController = TextEditingController(text: lastName);
+    final ageController = TextEditingController(text: age?.toString() ?? '');
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Edit my profile'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: firstNameController,
+                    decoration: const InputDecoration(labelText: 'first_name'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: lastNameController,
+                    decoration: const InputDecoration(labelText: 'last_name'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: ageController,
+                    decoration: const InputDecoration(labelText: 'Age'),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    // Conversion de l'âge
+                    int? newAge;
+                    if (ageController.text.isNotEmpty) {
+                      newAge = int.tryParse(ageController.text);
+                    }
+
+                    // Mise à jour du profil
+                    final user = supabase.auth.currentUser;
+                    if (user != null) {
+                      await supabase
+                          .from('profiles')
+                          .update({
+                            'first_name': firstNameController.text,
+                            'last_name': lastNameController.text,
+                            'age': newAge,
+                          })
+                          .eq('id', user.id);
+
+                      if (mounted) {
+                        setState(() {
+                          firstName = firstNameController.text;
+                          lastName = lastNameController.text;
+                          age = newAge;
+
+                          // Ne pas mettre à jour created_at car ce n'est pas modifié
+                        });
+                      }
+                    }
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profile updated')),
+                      );
+                    }
+                  } catch (e) {
+                    debugPrint("Update failed: $e");
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Error during update')),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // Gestion du graphique d'émotions
+  Widget _buildEmotionGraphWithErrorHandling() {
+    return Builder(
+      builder: (context) {
+        try {
+          return EmotionGraphWidget();
+        } catch (e) {
+          debugPrint("Graph error: $e");
+          return const Center(child: Text('Graph is currently unavailable'));
+        }
+      },
     );
   }
 }
