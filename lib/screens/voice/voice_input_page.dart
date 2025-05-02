@@ -37,6 +37,7 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
     super.dispose();
   }
 
+
   Future<void> _initRecorder() async {
     final micStatus = await Permission.microphone.request();
     if (micStatus != PermissionStatus.granted) {
@@ -75,8 +76,10 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
       await _recorder.stopRecorder();
       setState(() => _isRecording = false);
 
+      
       if (_audioPath != null) {
         await _uploadVocalToSupabase(_audioPath!);
+
       }
     } catch (e) {
       _showErrorDialog('Failed to stop recording: $e');
@@ -91,6 +94,7 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
     }
 
     try {
+
       final file = File(filePath);
       final fileName =
           'vocals/${user.id}/${DateTime.now().millisecondsSinceEpoch}.aac';
@@ -98,11 +102,13 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
       // Upload vers Supabase Storage
       await _supabase.storage
           .from('user-vocals')
+
           .upload(
             fileName,
             file,
             fileOptions: FileOptions(cacheControl: '3600'),
           );
+
 
       // Enregistrer la référence dans la table 'vocal_recordings'
       final publicUrl = _supabase.storage
@@ -117,13 +123,16 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
       });
 
       _showConfirmationDialog();
+
     } catch (e) {
       _showErrorDialog('Upload failed: $e');
     }
   }
 
+
   void _showErrorDialog(String message) {
     if (!mounted) return;
+
 
     showDialog(
       context: context,
@@ -162,12 +171,14 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Voice Recording'),
         backgroundColor: AppColors.primary,
         leading: const BackButtonWidget(),
       ),
+
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -180,6 +191,7 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
                 decoration: BoxDecoration(
                   color: _isRecording ? Colors.red : AppColors.primary,
                   shape: BoxShape.circle,
+
                 ),
                 child: Icon(
                   _isRecording ? Icons.stop : Icons.mic,

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/emotion_graph.dart';
+
+
+import 'package:mindbloom/widgets/emotional_score_gauge.dart'; // 👈 AJOUT ICI
+
 import '../../constants/colors.dart';
 import '../text_input/text_input_page.dart';
 import '../voice/voice_input_page.dart';
 import '../selfie/selfie_page.dart';
+import '../chatbot/chatbot_screen.dart';
 import '../../widgets/back_button.dart';
 import '../chatbot/chatbot_screen.dart';
 
@@ -127,6 +133,19 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final String name = userName ?? 'User';
+    double emotionalScore =
+        0.76; // 👈 Valeur exemple (à remplacer dynamiquement)
+
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -209,18 +228,15 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  // Avatar ou image
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.person,
-                      size: 40,
-                      color: Colors.grey[700],
+
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    height: 100,
+                    width: 100,
+                    child: Image.asset(
+                      'assets/images/back.png',
+                      fit: BoxFit.contain,
+
                     ),
                   ),
                 ],
@@ -229,7 +245,14 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 20),
 
-            // Section d'informations du profil
+
+            // 👇 AJOUT DU SCORE GAUGE
+            Center(child: EmotionalScoreGauge(score: emotionalScore)),
+
+            const SizedBox(height: 32),
+
+            // Input Buttons
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Card(
@@ -339,6 +362,19 @@ class _HomePageState extends State<HomePage> {
                     context,
                     icon: LucideIcons.messageCircle,
                     label: 'Engage with the Chatbot',
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ChatbotScreen(),
+                          ),
+                        ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildAnimatedButton(
+                    context,
+                    icon: LucideIcons.messageCircle,
+                    label: 'Interagir avec Chatbot',
                     onTap:
                         () => Navigator.push(
                           context,
