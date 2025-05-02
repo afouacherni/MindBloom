@@ -4,7 +4,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/emotion_graph.dart';
 
-
 import 'package:mindbloom/widgets/emotional_score_gauge.dart'; // 👈 AJOUT ICI
 
 import '../../constants/colors.dart';
@@ -13,7 +12,6 @@ import '../voice/voice_input_page.dart';
 import '../selfie/selfie_page.dart';
 import '../chatbot/chatbot_screen.dart';
 import '../../widgets/back_button.dart';
-import '../chatbot/chatbot_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,6 +31,8 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = true;
   bool hasError = false;
   String errorMessage = '';
+
+  double emotionalScore = 0.76; // 👈 Valeur exemple (à remplacer dynamiquement)
 
   final supabase = Supabase.instance.client;
 
@@ -133,7 +133,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-
     if (isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.background,
@@ -141,10 +140,7 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    final String name = userName ?? 'User';
-    double emotionalScore =
-        0.76; // 👈 Valeur exemple (à remplacer dynamiquement)
-
+    final String name = '${firstName ?? 'User'} ${lastName ?? ''}';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -211,20 +207,21 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Hello! ${firstName ?? 'Utilisateur'} ${lastName ?? ''}',
+                          'HI! ${firstName ?? 'Utilisateur'}',
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (age != null) ...[
-                          const SizedBox(height: 8),
-                          Text('Age: $age '),
-                        ],
-                        if (createdAt != null) ...[
-                          const SizedBox(height: 8),
-                          Text('Member since: $createdAt'),
-                        ],
+                        const SizedBox(height: 8),
+                        Text(
+                          "Feel free to express yourself here. This is your safe space.",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey[700],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -236,7 +233,6 @@ class _HomePageState extends State<HomePage> {
                     child: Image.asset(
                       'assets/images/back.png',
                       fit: BoxFit.contain,
-
                     ),
                   ),
                 ],
@@ -245,61 +241,10 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 20),
 
-
             // 👇 AJOUT DU SCORE GAUGE
             Center(child: EmotionalScoreGauge(score: emotionalScore)),
 
             const SizedBox(height: 32),
-
-            // Input Buttons
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Card(
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Profile Information',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _infoRow(
-                        'first_name',
-                        firstName ?? 'Non défini',
-                        Icons.person,
-                      ),
-                      const Divider(),
-                      _infoRow(
-                        'last_name',
-                        lastName ?? 'Non défini',
-                        Icons.person_outline,
-                      ),
-                      const Divider(),
-                      _infoRow(
-                        'Age',
-                        age?.toString() ?? 'Non défini',
-                        Icons.cake,
-                      ),
-                      const Divider(),
-                      _infoRow(
-                        'Registration Date',
-                        createdAt ?? 'Non définie',
-                        Icons.calendar_today,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
 
             // Actions disponibles
             Padding(
@@ -334,7 +279,7 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 12),
                   _actionButton(
                     context,
-                    icon: LucideIcons.mic,
+                    icon: LucideIcons.activity,
                     label: 'Let Your Thoughts Flow',
                     onTap:
                         () => Navigator.push(
@@ -371,18 +316,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                   ),
                   const SizedBox(height: 20),
-                  _buildAnimatedButton(
-                    context,
-                    icon: LucideIcons.messageCircle,
-                    label: 'Interagir avec Chatbot',
-                    onTap:
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ChatbotScreen(),
-                          ),
-                        ),
-                  ),
                 ],
               ),
             ),
