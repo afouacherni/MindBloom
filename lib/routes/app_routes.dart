@@ -16,7 +16,9 @@ class AppRoutes {
       home: (context) => HomePage(),
       textInput: (context) => TextInputPage(),
       voiceInput: (context) => VoiceInputPage(),
-      selfie: (context) => SelfiePage(),
+
+      selfie: (context) => SelfieUploadPage(),
+
     };
   }
 }

@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 🔥 Initialise Firebase (pour Firestore, Auth, etc.)
-  await Firebase.initializeApp();
 
   // 🧊 Initialise Supabase avec ton URL et ta clé
   await Supabase.initialize(

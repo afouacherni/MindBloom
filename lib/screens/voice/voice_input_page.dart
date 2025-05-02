@@ -4,11 +4,9 @@ import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../constants/colors.dart';
 import 'package:mindbloom/widgets/back_button.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class VoiceInputPage extends StatefulWidget {
   const VoiceInputPage({super.key});
@@ -22,13 +20,13 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
   bool _isRecorderInitialized = false;
   bool _isRecording = false;
   String? _audioPath;
-  String? userId;
+
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
     _initRecorder();
-    _getUserId();
   }
 
   @override
@@ -39,172 +37,107 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
     super.dispose();
   }
 
-  Future<void> _getUserId() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      setState(() {
-        userId = user.uid;
-      });
-    }
-  }
 
   Future<void> _initRecorder() async {
     final micStatus = await Permission.microphone.request();
     if (micStatus != PermissionStatus.granted) {
       if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                title: const Text('Microphone Permission Denied'),
-                content: const Text(
-                  'Please grant microphone permission to record audio.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-        );
+        _showErrorDialog('Microphone permission is required to record audio');
       }
       return;
     }
 
     try {
       await _recorder.openRecorder();
-      _isRecorderInitialized = true;
-      if (mounted) setState(() {});
+      setState(() => _isRecorderInitialized = true);
     } catch (e) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                title: const Text('Error'),
-                content: Text('Failed to initialize the recorder: $e'),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-        );
-      }
+      _showErrorDialog('Failed to initialize recorder: $e');
     }
   }
 
   Future<void> _startRecording() async {
     try {
       final directory = await getApplicationDocumentsDirectory();
-      final filePath = '${directory.path}/voice.aac';
+      final filePath =
+          '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.aac';
 
       await _recorder.startRecorder(toFile: filePath, codec: Codec.aacADTS);
-
       setState(() {
         _isRecording = true;
         _audioPath = filePath;
       });
     } catch (e) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                title: const Text('Error'),
-                content: Text('Failed to start recording: $e'),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-        );
-      }
+      _showErrorDialog('Recording failed: $e');
     }
   }
 
   Future<void> _stopRecording() async {
     try {
       await _recorder.stopRecorder();
-      setState(() {
-        _isRecording = false;
-      });
+      setState(() => _isRecording = false);
 
-      if (_audioPath != null && userId != null) {
-        await _uploadVocal(userId!, _audioPath!);
+      
+      if (_audioPath != null) {
+        await _uploadVocalToSupabase(_audioPath!);
+
       }
     } catch (e) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                title: const Text('Error'),
-                content: Text('Failed to stop recording: $e'),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-        );
-      }
+      _showErrorDialog('Failed to stop recording: $e');
     }
   }
 
-  Future<void> _uploadVocal(String userId, String filePath) async {
-    final file = File(filePath);
-    final fileName =
-        '$userId/vocal-${DateTime.now().millisecondsSinceEpoch}.aac';
+  Future<void> _uploadVocalToSupabase(String filePath) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      _showErrorDialog('User not authenticated');
+      return;
+    }
 
     try {
-      await Supabase.instance.client.storage
-          .from('vocals')
+
+      final file = File(filePath);
+      final fileName =
+          'vocals/${user.id}/${DateTime.now().millisecondsSinceEpoch}.aac';
+
+      // Upload vers Supabase Storage
+      await _supabase.storage
+          .from('user-vocals')
+
           .upload(
             fileName,
             file,
             fileOptions: FileOptions(cacheControl: '3600'),
           );
 
-      final fileUrl = Supabase.instance.client.storage
-          .from('vocals')
+
+      // Enregistrer la référence dans la table 'vocal_recordings'
+      final publicUrl = _supabase.storage
+          .from('user-vocals')
           .getPublicUrl(fileName);
 
-      await _addVocalToFirestore(userId, fileUrl);
-      _showConfirmationDialog(context);
-    } catch (e) {
-      _showErrorDialog(context, 'Failed to upload vocal: $e');
-    }
-  }
-
-  Future<void> _addVocalToFirestore(String userId, String vocalUrl) async {
-    try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).update({
-        'vocals': FieldValue.arrayUnion([vocalUrl]),
+      await _supabase.from('vocal_recordings').insert({
+        'user_id': user.id,
+        'file_path': fileName,
+        'url': publicUrl,
+        'created_at': DateTime.now().toIso8601String(),
       });
+
+      _showConfirmationDialog();
+
     } catch (e) {
-      _showErrorDialog(context, 'Failed to update vocal: $e');
+      _showErrorDialog('Upload failed: $e');
     }
   }
 
-  void _showErrorDialog(BuildContext context, String message) {
+
+  void _showErrorDialog(String message) {
+    if (!mounted) return;
+
+
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (context) => AlertDialog(
             title: const Text('Error'),
             content: Text(message),
             actions: [
@@ -217,13 +150,15 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
     );
   }
 
-  void _showConfirmationDialog(BuildContext context) {
+  void _showConfirmationDialog() {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
-            title: const Text('Vocal Submitted'),
-            content: const Text('Your vocal has been successfully uploaded.'),
+          (context) => AlertDialog(
+            title: const Text('Success'),
+            content: const Text('Your recording has been saved successfully!'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -236,97 +171,48 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isRecorderInitialized) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Record Your Voice'),
-          backgroundColor: AppColors.primary,
-          automaticallyImplyLeading: false,
-          leading: const BackButtonWidget(), // Correction ici
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Record Your Voice'),
+        title: const Text('Voice Recording'),
         backgroundColor: AppColors.primary,
-        automaticallyImplyLeading: false,
         leading: const BackButtonWidget(),
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: _isRecording ? 150 : 120,
-                  height: _isRecording ? 150 : 120,
-                  decoration: BoxDecoration(
-                    color: _isRecording ? AppColors.accent : AppColors.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            _isRecording ? Colors.redAccent : Colors.blueAccent,
-                        blurRadius: 10,
-                        spreadRadius: 3,
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: FaIcon(
-                      _isRecording
-                          ? FontAwesomeIcons.pause
-                          : FontAwesomeIcons.microphone,
-                      size: _isRecording ? 80 : 60,
-                      color: Colors.black,
-                    ),
-                    onPressed: _toggleRecording,
-                  ),
+
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: _isRecording ? _stopRecording : _startRecording,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: _isRecording ? Colors.red : AppColors.primary,
+                  shape: BoxShape.circle,
+
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  _isRecording
-                      ? 'Recording... tap to stop'
-                      : 'Tap to start recording',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Icon(
+                  _isRecording ? Icons.stop : Icons.mic,
+                  size: 60,
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 20),
-                if (_audioPath != null)
-                  Text(
-                    'Audio saved at:\n$_audioPath',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 20),
+            Text(
+              _isRecording ? 'Recording...' : 'Tap to record',
+              style: const TextStyle(fontSize: 20),
+            ),
+            if (_audioPath != null) ...[
+              const SizedBox(height: 20),
+              const Text('Last recording saved:'),
+              Text(_audioPath!, textAlign: TextAlign.center),
+            ],
+          ],
         ),
       ),
     );
-  }
-
-  void _toggleRecording() {
-    if (_isRecording) {
-      _stopRecording();
-    } else {
-      _startRecording();
-    }
   }
 }
