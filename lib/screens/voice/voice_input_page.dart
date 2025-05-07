@@ -1,10 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:http/http.dart' as http;
 import '../../constants/colors.dart';
 import 'package:mindbloom/widgets/back_button.dart';
 
@@ -20,6 +21,7 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
   bool _isRecorderInitialized = false;
   bool _isRecording = false;
   String? _audioPath;
+  bool _loading = false;
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -37,13 +39,10 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
     super.dispose();
   }
 
-
   Future<void> _initRecorder() async {
     final micStatus = await Permission.microphone.request();
     if (micStatus != PermissionStatus.granted) {
-      if (mounted) {
-        _showErrorDialog('Microphone permission is required to record audio');
-      }
+      _showErrorDialog('Microphone permission is required to record audio');
       return;
     }
 
@@ -76,64 +75,73 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
       await _recorder.stopRecorder();
       setState(() => _isRecording = false);
 
-      
       if (_audioPath != null) {
-        await _uploadVocalToSupabase(_audioPath!);
-
+        await _uploadVocal(_audioPath!);
       }
     } catch (e) {
       _showErrorDialog('Failed to stop recording: $e');
     }
   }
 
-  Future<void> _uploadVocalToSupabase(String filePath) async {
+  Future<void> _uploadVocal(String filePath) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
       _showErrorDialog('User not authenticated');
       return;
     }
 
+    setState(() => _loading = true);
+
     try {
+      final session = _supabase.auth.currentSession;
+      final accessToken = session?.accessToken;
+
+      if (accessToken == null) {
+        _showErrorDialog('No access token available');
+        return;
+      }
 
       final file = File(filePath);
-      final fileName =
-          'vocals/${user.id}/${DateTime.now().millisecondsSinceEpoch}.aac';
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('http://192.168.67.202:5000/predict_audio'),
+      );
 
-      // Upload vers Supabase Storage
-      await _supabase.storage
-          .from('user-vocals')
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
+      request.fields['user_id'] = user.id;
+      request.headers['Authorization'] = 'Bearer $accessToken';
 
-          .upload(
-            fileName,
-            file,
-            fileOptions: FileOptions(cacheControl: '3600'),
-          );
+      final response = await request.send();
 
+      if (response.statusCode == 200) {
+        final responseData = await response.stream.bytesToString();
+        final responseJson = json.decode(responseData);
 
-      // Enregistrer la référence dans la table 'vocal_recordings'
-      final publicUrl = _supabase.storage
-          .from('user-vocals')
-          .getPublicUrl(fileName);
+        final double score = responseJson['score'];
+        final String fileUrl = responseJson['url'];
 
-      await _supabase.from('vocal_recordings').insert({
-        'user_id': user.id,
-        'file_path': fileName,
-        'url': publicUrl,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+        await _supabase.from('vocal_recordings').insert({
+          'user_id': user.id,
+          'file_path':
+              'vocals/${user.id}/${DateTime.now().millisecondsSinceEpoch}.aac',
+          'url': fileUrl,
+          'score': score,
+          'created_at': DateTime.now().toIso8601String(),
+        });
 
-      _showConfirmationDialog();
-
+        _showSuccessDialog(score);
+      } else {
+        _showErrorDialog('API failed with status code: ${response.statusCode}');
+      }
     } catch (e) {
       _showErrorDialog('Upload failed: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-
   void _showErrorDialog(String message) {
     if (!mounted) return;
-
-
     showDialog(
       context: context,
       builder:
@@ -150,15 +158,14 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
     );
   }
 
-  void _showConfirmationDialog() {
+  void _showSuccessDialog(double score) {
     if (!mounted) return;
-
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
             title: const Text('Success'),
-            content: const Text('Your recording has been saved successfully!'),
+            content: Text('Recording saved with depression score: $score'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -171,47 +178,47 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Voice Recording'),
         backgroundColor: AppColors.primary,
         leading: const BackButtonWidget(),
       ),
-
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            GestureDetector(
-              onTap: _isRecording ? _stopRecording : _startRecording,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: _isRecording ? Colors.red : AppColors.primary,
-                  shape: BoxShape.circle,
-
+        child:
+            _loading
+                ? const CircularProgressIndicator()
+                : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: _isRecording ? _stopRecording : _startRecording,
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: _isRecording ? Colors.red : AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _isRecording ? Icons.stop : Icons.mic,
+                          size: 60,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      _isRecording ? 'Recording...' : 'Tap to record',
+                      style: const TextStyle(fontSize: 20),
+                    ),
+                    if (_audioPath != null) ...[
+                      const SizedBox(height: 20),
+                      const Text('Last recording:'),
+                      Text(_audioPath!, textAlign: TextAlign.center),
+                    ],
+                  ],
                 ),
-                child: Icon(
-                  _isRecording ? Icons.stop : Icons.mic,
-                  size: 60,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              _isRecording ? 'Recording...' : 'Tap to record',
-              style: const TextStyle(fontSize: 20),
-            ),
-            if (_audioPath != null) ...[
-              const SizedBox(height: 20),
-              const Text('Last recording saved:'),
-              Text(_audioPath!, textAlign: TextAlign.center),
-            ],
-          ],
-        ),
       ),
     );
   }

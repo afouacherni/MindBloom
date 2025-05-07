@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../constants/colors.dart';
 import 'package:mindbloom/widgets/back_button.dart';
 
@@ -18,6 +20,7 @@ class _SelfieUploadPageState extends State<SelfieUploadPage> {
   final ImagePicker _picker = ImagePicker();
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // Pick an image from the camera
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
@@ -25,6 +28,7 @@ class _SelfieUploadPageState extends State<SelfieUploadPage> {
     }
   }
 
+  // Upload the selfie to Supabase and send to Flask for prediction
   Future<void> _uploadSelfie() async {
     if (_image == null) return;
 
@@ -37,25 +41,18 @@ class _SelfieUploadPageState extends State<SelfieUploadPage> {
     setState(() => _loading = true);
 
     try {
-      // 1. Upload vers Supabase Storage
-      final fileName =
-          'selfies/${user.id}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      await _supabase.storage.from('user-selfies').upload(fileName, _image!);
+      // Envoyer directement l'image au serveur Flask pour analyse et stockage
+      final response = await _sendSelfieToFlask(_image!);
 
-      // 2. Récupérer l'URL publique
-      final publicUrl = _supabase.storage
-          .from('user-selfies')
-          .getPublicUrl(fileName);
+      if (response != null) {
+        final predictedClass = response['class'];
+        final depressionScore = response['score'];
+        final imageUrl = response['url']; // Récupérer l'URL fournie par Flask
 
-      // 3. Enregistrer dans la table selfie_records
-      await _supabase.from('selfie_records').insert({
-        'user_id': user.id,
-        'file_path': fileName,
-        'url': publicUrl,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      _showSuccessDialog();
+        _showSuccessDialog(predictedClass, depressionScore);
+      } else {
+        _showErrorDialog('Prediction failed');
+      }
     } catch (e) {
       _showErrorDialog('Upload failed: ${e.toString()}');
     } finally {
@@ -63,6 +60,50 @@ class _SelfieUploadPageState extends State<SelfieUploadPage> {
     }
   }
 
+  // Send the selfie image file to Flask for prediction
+  Future<Map<String, dynamic>?> _sendSelfieToFlask(File imageFile) async {
+    try {
+      final session = _supabase.auth.currentSession;
+      final accessToken = session?.accessToken;
+
+      if (accessToken == null) {
+        print('No access token found');
+        return null;
+      }
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('http://192.168.67.202:5000/predict'), // Flask API URL
+      );
+
+      // Attach image file to the request
+      request.files.add(
+        await http.MultipartFile.fromPath('image', imageFile.path),
+      );
+
+      // Ajouter l'ID utilisateur dans le formulaire pour le serveur Flask
+      request.fields['user_id'] = _supabase.auth.currentUser!.id;
+
+      // Ajouter le token JWT à l'en-tête (pour référence future)
+      request.headers['Authorization'] = 'Bearer $accessToken';
+
+      var response = await request.send();
+
+      if (response.statusCode == 200) {
+        var responseData = await response.stream.bytesToString();
+        var result = json.decode(responseData);
+        return result; // returns the prediction result
+      } else {
+        print('Error from Flask API: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error during API call: $e');
+      return null;
+    }
+  }
+
+  // Show error dialog
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -80,13 +121,25 @@ class _SelfieUploadPageState extends State<SelfieUploadPage> {
     );
   }
 
-  void _showSuccessDialog() {
+  // Show success dialog with predicted class and score
+  void _showSuccessDialog(int predictedClass, double depressionScore) {
+    String className = '';
+    if (predictedClass == 0) {
+      className = 'happy';
+    } else if (predictedClass == 1) {
+      className = 'neutral';
+    } else {
+      className = 'sad';
+    }
+
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
             title: const Text('Success'),
-            content: const Text('Your selfie has been uploaded successfully!'),
+            content: Text(
+              'Your selfie has been uploaded successfully!\n\nPredicted Class: $className\nDepression Score: $depressionScore',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -124,7 +177,7 @@ class _SelfieUploadPageState extends State<SelfieUploadPage> {
                 child:
                     _loading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Upload to Supabase'),
+                        : const Text('Analyze and Upload'),
               ),
           ],
         ),
